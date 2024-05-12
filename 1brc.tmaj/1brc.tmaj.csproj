@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>1brc.tmaj</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PublishAot>true</PublishAot>
+    <Nullable>enable</Nullable>
+    <Authors>Tymek Majeski</Authors>
+    <Optimize>true</Optimize>
+
+  </PropertyGroup>
+
+</Project>

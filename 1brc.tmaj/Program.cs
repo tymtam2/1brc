@@ -1,5 +1,5 @@
-﻿//#define LOG
-//#define LOG1
+﻿#define LOG
+#define LOG1
 
 
 using System.Collections.Concurrent;
@@ -7,21 +7,23 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 // 100,000,000
-// Getting len: 00:00:00.0017209
-// Array alloc:  00:00:00.0001142
-// 1379530352 / 8 = 172441294
-// Read into the array:  00:00:00.2938592
-// Data parsing and partitioning:  00:00:01.1974694
+// Getting len: 00:00:00.0017092
+// Array alloc:  00:00:00.0000696
+// Read into the array:  00:00:00.3222814
+// Data parsing and partitioning:  00:00:01.1905108
 // numMeas=100,000,000
-// Last bit:  00:00:00.0105059
-// Total elapsed: 00:00:01.5190888
+// {...}
+// Last bit:  00:00:00.0116088
+// Total elapsed: 00:00:01.5423937
 
-// real    0m3.000s
-// user    0m10.131s
-// sys     0m2.188s
+// real    0m3.111s
+// user    0m9.999s
+// sys     0m2.185s
 
 class TestClass
 {
+
+  private static readonly object _lock = new object();
   static void Main(string[] args)
   {
     var logicalProcessorsCount = Environment.ProcessorCount;
@@ -83,7 +85,7 @@ class TestClass
     sw.Restart();
 #endif
 
-    ConcurrentDictionary<int, LocationData> dict = [];
+    Dictionary<int, LocationData> dict = [];
     const byte NewLine = (byte)'\n';
 
     {
@@ -119,6 +121,7 @@ class TestClass
           var meas_start = start;
           int i = start;
           int measurement_end = start;
+          LocationData? locationData;
           while (i < chunk_end)
           {
             if (buffer[i] != (byte)';') i++;
@@ -144,7 +147,7 @@ class TestClass
 #endif
 
               var hash = ComputeHash(locationNameBytes);
-              localDict.TryGetValue(hash, out LocationData? locationData);
+              localDict.TryGetValue(hash, out locationData);
               if (locationData != null)
               {
                 locationData.Count++;
@@ -165,7 +168,7 @@ class TestClass
           }
 
           // Process measurements which finish after the chunk's end
-          if(!isLastChunk) // but there is no beyond the last chunk 
+          if (!isLastChunk) // but there is no beyond the last chunk 
           {
             if (meas_start < chunk_end) // = only process measurements that started in our chunk 
             {
@@ -188,10 +191,10 @@ class TestClass
               //   Console.WriteLine($"{temp} vs {temp2} :(");
               //   return;
               // }
-  #endif
+#endif
 
               var hash = ComputeHash(locationNameBytes);
-              localDict.TryGetValue(hash, out LocationData? locationData);
+              localDict.TryGetValue(hash, out locationData);
               if (locationData != null)
               {
                 locationData.Count++;
@@ -209,23 +212,26 @@ class TestClass
             }
           }
 
-          // TODO try a critical section instead of the concurrent dictionary
-          foreach (var x in localDict)
+          lock (_lock)
           {
             
-            var v = x.Value;
-            dict.AddOrUpdate(
-                   key: x.Key,
-                   addValue: v,
-                   updateValueFactory: (key, oldValue) =>
-                   {
-                     oldValue.Count += v.Count;
-                     oldValue.Sum += v.Sum;
-                     if (oldValue.Min > v.Min) oldValue.Min = v.Min;
-                     if (oldValue.Max < v.Max) oldValue.Max = v.Max;
-                     return oldValue;
-                   });
-
+            LocationData? existing;
+            foreach (var x in localDict)
+            {
+              var v = x.Value;
+              dict.TryGetValue(x.Key, out existing);
+              if (existing != null)
+              {
+                existing.Count += v.Count;
+                existing.Sum += v.Sum;
+                if (existing.Max < v.Max) existing.Max = v.Max;
+                if (existing.Min > v.Min) existing.Min = v.Min;
+              }
+              else
+              {
+                dict.Add(x.Key, v);
+              }
+            }
           }
 
           Interlocked.Add(ref numMeas, my_meas_n);

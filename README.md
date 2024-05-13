@@ -48,15 +48,3 @@ sys     0m2.351s
    1. Run
    2. Update Readme with `dotnet publish` instructions.
 
-## Issues
-
-### 1. My solution sorts the output differntly:
-
-My: 
-
-`{Abéché=..., Abha=..., Abidjan=...`
-
-Theirs: 
-
-`{Abha=..., Abidjan=..., Abéché=...`
-

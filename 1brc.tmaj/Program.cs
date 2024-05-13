@@ -6,19 +6,28 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
-// 100,000,000
-// Getting len: 00:00:00.0017092
-// Array alloc:  00:00:00.0000696
-// Read into the array:  00:00:00.3222814
-// Data parsing and partitioning:  00:00:01.1905108
-// numMeas=100,000,000
-// {...}
-// Last bit:  00:00:00.0116088
-// Total elapsed: 00:00:01.5423937
+// 200,000,000, 8Gb machine: 
+// Getting len: 00:00:00.0016930
+// Arrays alloc:  00:00:00.0014529
+// Read into the array:  00:00:01.8042291
+// Data parsing and partitioning:  00:00:02.0713979
+// numMeas=200,000,000
+// {Abha= ...}
+// Last bit:  00:00:00.0117738
+// Total elapsed: 00:00:03.8998091
 
-// real    0m3.111s
-// user    0m9.999s
-// sys     0m2.185s
+
+real    0m5.933s
+user    0m17.582s
+sys     0m4.541s
+
+real    0m7.343s
+user    0m18.343s
+sys     0m4.589s
+
+real    0m5.491s
+user    0m17.816s
+sys     0m3.851s
 
 class TestClass
 {
@@ -44,38 +53,51 @@ class TestClass
     Console.WriteLine($"Getting len: {elapsed}");
     sw.Restart();
 #endif
-    byte[] buffer = new byte[length];
+
+
+    var nChunks = logicalProcessorsCount;
+    var maxDegreeOfParallelism = logicalProcessorsCount;
+    int chunk_len = (int)(length / nChunks);
+
+    byte[][] buffers = new byte[nChunks][]; // Arrays larger than 2GB are not supported. 
+    for (int iChunk = 0; iChunk < nChunks; iChunk++)
+    {
+      long arraySize = (iChunk == (nChunks - 1)) ? (length - (iChunk * (long)chunk_len)) : (chunk_len+6);
+      buffers[iChunk] = new byte[arraySize];
+    }
+
+    //byte[] buffer = (byte[])Array.CreateInstance(typeof(byte), length); // Arrays larger than 2GB are not supported. 
 
 #if LOG
     elapsed = sw.Elapsed;
-    Console.WriteLine($"Array alloc:  {elapsed}");
+    Console.WriteLine($"Arrays alloc:  {elapsed}");
     sw.Restart();
 #endif
-    {
-      var chunks = logicalProcessorsCount;
-      var maxDegreeOfParallelism = logicalProcessorsCount;
-      int chunk_len = (int)length / chunks;
 
+    {
       Parallel.For(
         fromInclusive: 0,
-        toExclusive: chunks,
+        toExclusive: nChunks,
         parallelOptions: new ParallelOptions { MaxDegreeOfParallelism = maxDegreeOfParallelism },
         body: i =>
         {
           using var fs = File.OpenRead(path);
 
-          var start = i * chunk_len;
-          var bytes_to_read = (i == (chunks - 1)) ? (length - i * chunk_len) : chunk_len;
+          long fsStart = i * (long)chunk_len;
+          int aStart = 0;
+          int bytes_to_read = (int)((i == (nChunks - 1)) ? (length - (long)i * (long)chunk_len) : (chunk_len+6));
+          byte[] buffer = buffers[i];
 
           int count = (int)bytes_to_read;
           int bytesRead;
 
-          fs.Seek(start, SeekOrigin.Begin);
-          while (count > 0 && ((bytesRead = fs.Read(buffer, offset: start, count: count)) > 0))
+          fs.Seek(fsStart, SeekOrigin.Begin);
+          while (count > 0 && ((bytesRead = fs.Read(buffer, offset: aStart, count: count)) > 0))
           {
             bytes_to_read -= bytesRead;
-            start += bytesRead;
+            aStart += bytesRead;
             count = (int)Math.Min(count, bytes_to_read);
+
           }
         });
     }
@@ -89,35 +111,35 @@ class TestClass
     const byte NewLine = (byte)'\n';
 
     {
-      int maxDegreeOfParallelism = logicalProcessorsCount + 1; // Established experimentally
-      int chunks = logicalProcessorsCount + 1;
-      int chunk_len = (int)length / chunks;
 
       Parallel.For(
         fromInclusive: 0,
-        toExclusive: chunks,
+        toExclusive: nChunks,
         parallelOptions: new ParallelOptions { MaxDegreeOfParallelism = maxDegreeOfParallelism },
-        body: chunk_i =>
+        body: iChunk =>
         {
-          //Console.Write($"[{Thread.CurrentThread.ManagedThreadId}] ");
-          ReadOnlySpan<byte> bytes = buffer;
-          var start = chunk_i * chunk_len;
-          var isLastChunk = chunk_i == (chunks - 1);
-          var bytes_to_read = isLastChunk ? (length - chunk_i * chunk_len) : chunk_len;
-          var chunk_end = start + bytes_to_read;
+           //Console.Write($"[{Thread.CurrentThread.ManagedThreadId}] ");
+          ReadOnlySpan<byte> bytes = buffers[iChunk];
+          byte[] buffer = buffers[iChunk];
+          int start = 0;
+          bool isLastChunk = iChunk == (nChunks - 1);
+          int bytes_to_read = isLastChunk ? (int)(length - (long)iChunk * (long)chunk_len) : chunk_len;
 
-          var my_meas_n = 0;
+          int chunk_end = start + bytes_to_read;
+
+          int my_meas_n = 0;
 
           // Hamburg;12.0\nBulawayo;8.9\nPalembang;38.8
 
           Dictionary<int, LocationData> localDict = [];
 
-          bool go = start == 0 || buffer[start - 1] == NewLine;
+          bool go = iChunk == 0 || buffers[iChunk - 1][chunk_len - 1] == NewLine;
           while (!go)
           {
             if (buffer[start] == NewLine) go = true;
             start++;
           }
+
           var meas_start = start;
           int i = start;
           int measurement_end = start;
@@ -172,16 +194,31 @@ class TestClass
           {
             if (meas_start < chunk_end) // = only process measurements that started in our chunk 
             {
-              while (buffer[i] != (byte)';') i++;
+              i %= chunk_len;
+              var nextBuffer = buffers[iChunk + 1];
+              while (nextBuffer[i] != (byte)';') i++;
 
-              var locationNameBytes = bytes[meas_start..i];
-
-              if (buffer[i + 4] == NewLine) measurement_end = i + 3;
-              else if (buffer[i + 5] == NewLine) measurement_end = i + 4;
-              else if (buffer[i + 6] == NewLine) measurement_end = i + 5;
+              if (nextBuffer[i + 4] == NewLine) measurement_end = i + 3;
+              else if (nextBuffer[i + 5] == NewLine) measurement_end = i + 4;
+              else if (nextBuffer[i + 6] == NewLine) measurement_end = i + 5;
               else throw new Exception("No end?");
 
-              var temp = ParseTemperature(buffer, i + 1, measurement_end);
+              var x = buffer[meas_start..chunk_end];
+              var y = nextBuffer[0..(measurement_end + 1)];
+              var z = new byte[x.Length + y.Length];
+              x.CopyTo(z, 0);
+              y.CopyTo(z, x.Length);
+
+              var str = System.Text.Encoding.Default.GetString(z);
+
+              var lockEndPlus1 = ((chunk_end - meas_start) + i);
+              var locationNameBytes = z[0..lockEndPlus1];
+              str = System.Text.Encoding.Default.GetString(locationNameBytes);
+
+              var temperatureA = z[(lockEndPlus1 + 1)..z.Length];
+              str = System.Text.Encoding.Default.GetString(temperatureA);
+
+              var temp = ParseTemperature(temperatureA, 0, temperatureA.Length - 1);
 
 #if DEBUG
               // var tempRawish = float.Parse(tempBytes); // This takes 50% of processing
@@ -214,7 +251,6 @@ class TestClass
 
           lock (_lock)
           {
-            
             LocationData? existing;
             foreach (var x in localDict)
             {
@@ -253,7 +289,7 @@ class TestClass
       mean = ((float)(kvp.Value.Sum) / kvp.Value.Count) / 10,
       max = (float)(kvp.Value.Max) / 10
     })
-      .OrderBy(x => x.city)
+      .OrderBy(x => x.city, StringComparer.Ordinal) // Ordinal makes Abha appear before Abéché
       .Select(x => $"{x.city}={x.min:F1}/{x.mean:F1}/{x.max:F1}");
 
 

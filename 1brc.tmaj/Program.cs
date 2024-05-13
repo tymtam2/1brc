@@ -16,18 +16,17 @@ using System.Runtime.CompilerServices;
 // Last bit:  00:00:00.0117738
 // Total elapsed: 00:00:03.8998091
 
+// real    0m5.933s
+// user    0m17.582s
+// sys     0m4.541s
 
-real    0m5.933s
-user    0m17.582s
-sys     0m4.541s
+// real    0m7.343s
+// user    0m18.343s
+// sys     0m4.589s
 
-real    0m7.343s
-user    0m18.343s
-sys     0m4.589s
-
-real    0m5.491s
-user    0m17.816s
-sys     0m3.851s
+// real    0m5.491s
+// user    0m17.816s
+// sys     0m3.851s
 
 class TestClass
 {
@@ -62,7 +61,7 @@ class TestClass
     byte[][] buffers = new byte[nChunks][]; // Arrays larger than 2GB are not supported. 
     for (int iChunk = 0; iChunk < nChunks; iChunk++)
     {
-      long arraySize = (iChunk == (nChunks - 1)) ? (length - (iChunk * (long)chunk_len)) : (chunk_len+6);
+      long arraySize = (iChunk == (nChunks - 1)) ? (length - (iChunk * (long)chunk_len)) : (chunk_len+6); // + 6 so that we can read unfinished measurements without having to jump the chunks
       buffers[iChunk] = new byte[arraySize];
     }
 
@@ -85,7 +84,7 @@ class TestClass
 
           long fsStart = i * (long)chunk_len;
           int aStart = 0;
-          int bytes_to_read = (int)((i == (nChunks - 1)) ? (length - (long)i * (long)chunk_len) : (chunk_len+6));
+          int bytes_to_read = (int)((i == (nChunks - 1)) ? (length - (long)i * (long)chunk_len) : (chunk_len+6));// + 6 so that we can read unfinished measurements without having to jump the chunks
           byte[] buffer = buffers[i];
 
           int count = (int)bytes_to_read;

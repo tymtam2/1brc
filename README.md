@@ -50,7 +50,7 @@ Last bit:  00:00:00.0149148
 Total elapsed: 00:00:13.0428714
 ```
 
-For reference https://github.com/cameronaavik/1brc on the same machine:
+https://github.com/cameronaavik/1brc on the same machine:
 ```
 tmaj@tm1brc:~$ time dotnet run -c Release --project=1brc.cameronaavik/1brc.csproj /home/tmaj/1brc.data/measurements-1000000000.txt > 1brc.cameronaavik.1_000_000_000.out
 

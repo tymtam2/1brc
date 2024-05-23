@@ -28,6 +28,21 @@ using System.Runtime.CompilerServices;
 // user    0m17.816s
 // sys     0m3.851s
 
+
+// 1,000,000,000 on 32GB
+// Getting len: 00:00:00.0001106
+// Arrays alloc:  00:00:00.0098801
+// Read into the array:  00:00:01.5287347
+// Data parsing and partitioning:  00:00:13.0448311
+// numMeas=1,000,000,000
+// {Data here}
+// Last bit:  00:00:00.0009655
+// Total elapsed: 00:00:14.5889054
+//
+// real	0m15.209s
+// user	1m32.825s
+// sys	0m12.214s
+
 class TestClass
 {
 

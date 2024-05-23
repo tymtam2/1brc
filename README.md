@@ -35,10 +35,10 @@ time dotnet run -c Release --project=1brc.tmaj.csproj /home/tmaj/1brc.data/measu
 
 real	0m15.209s
 user	1m32.825s
-sys		0m12.214s
+sys	0m12.214s
 ```
 
-The ouput file shows
+The ouput file shows:
 ```
 Getting len: 00:00:00.0031746
 Arrays alloc:  00:00:00.0093719
@@ -59,9 +59,9 @@ user	0m33.661s
 sys		0m1.929s
 ```
 
-The outputs data are identical and both agree with https://huggingface.co/datasets/nietras/1brc.data/blob/main/measurements-1000000000.out 
+The outputs data are identical and both agree with [ttps://huggingface.co/datasets/nietras/1brc.data/blob/main/measurements-1000000000.out](https://huggingface.co/datasets/nietras/1brc.data/blob/main/measurements-1000000000.out).
 
-## Native AOT
+#### Native AOT
 
 ```
 tmaj@tm1brc:~/1brc.tmaj$ dotnet publish -r linux-x64 -c Release
@@ -98,11 +98,4 @@ sys	0m1.546s
 
 ```
 
-## TODOs
-
-1. Run with NativeAOT
-   1. Run
-   2. Update Readme with `dotnet publish` instructions.
-
-----
 
